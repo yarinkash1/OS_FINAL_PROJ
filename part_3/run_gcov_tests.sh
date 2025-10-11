@@ -26,6 +26,4 @@ set -e
 ./main -v 4 -e 4 -s 42 || true
 
 # 9) (optional) force a non-Eulerian structure to exercise failure path in algorithm
-# Note: this line will only cover the catch{} in main if your EulerCircle throws on failure.
-# If your implementation just prints and returns (no throw), the catch lines in main won't be covered.
 ./main -v 4 -e 3 -s 1 || true

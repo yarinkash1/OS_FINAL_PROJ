@@ -4,9 +4,9 @@
 @ date: 10-10-2025
 
 @ description: Graph implementation using adjacency list representation.
-                Supports both directed and undirected graphs with capacities on edges.
-                Includes methods for adding edges, retrieving neighbors, checking edge existence, and printing the graph.
-                Designed for use in network flow algorithms and other graph-related computations.
+Supports both directed and undirected graphs with capacities on edges.
+Includes methods for adding edges, retrieving neighbors, checking edge existence, and printing the graph.
+Designed for use in network flow algorithms and other graph-related computations.
 */
 
 
@@ -34,8 +34,10 @@ The vertices number passed to adj creates a vector with empty vector lists,
 the size of the vertices we have(each vertex represent an empty list of its neighbors)
 */
 Graph(int vertices, bool isDirected) : 
-    V(vertices), E(0), directed(isDirected), adj(vertices), capacity(vertices, std::vector<int>(vertices, 0)) {
-        if (vertices <= 0) {
+    V(vertices), E(0), directed(isDirected), adj(vertices), capacity(vertices, std::vector<int>(vertices, 0)) 
+    {
+        if (vertices <= 0) 
+        {
             throw std::invalid_argument("number of vertices must be positive");
         }
     }
@@ -46,8 +48,6 @@ Graph(int vertices, bool isDirected) :
 
     // Get number of vertices
     int get_vertices() const { return V; }
-
-    // Get number of edges
 
     // Return the full adjacency list
     const std::vector<std::vector<int>>& getAdjList() const { return adj; }

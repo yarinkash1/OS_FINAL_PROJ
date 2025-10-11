@@ -4,13 +4,13 @@
 
 #include <iostream>
 #include <unistd.h> // for getopt
-#include <cstdlib>
+#include <cstdlib> // for std::atoi
 
 /*
+instructions to run the main demo:
 to run the main write this line:
 ./main -v <vertices> -e <edges> -s $(date +%s)
 */
-
 
 int main(int argc, char* argv[]) 
 {

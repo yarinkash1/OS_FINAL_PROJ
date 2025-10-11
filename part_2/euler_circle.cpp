@@ -2,7 +2,7 @@
 
 void EulerCircle::findEulerianCircuit() 
 {
-    std::vector<std::vector<int>> adjList = g.getAdjList();
+    std::vector<std::vector<int>> adjList = g.getAdjList(); // copy the adjacency list
     int V = adjList.size();
     bool isEulerian = true;
     // Check for undirected graph: all degrees must be even

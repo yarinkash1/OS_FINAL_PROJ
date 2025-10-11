@@ -11,9 +11,12 @@ int main()
     g.addEdge(0, 4);
 
     // Invalid edge (should throw out_of_range)
-    try {
+    try 
+    {
         g.addEdge(-1, 2);
-    } catch (const std::out_of_range& e) {
+    }
+    catch (const std::out_of_range& e) 
+    {
         std::cout << "Caught exception: " << e.what() << std::endl;
     }
 
@@ -48,9 +51,12 @@ int main()
     d.addEdge(1, 2, 0);
 
     // Invalid edge with negative capacity (should throw invalid_argument)
-    try {
+    try 
+    {
         d.addEdge(2, 2, -7);
-    } catch (const std::invalid_argument& e) {
+    }
+    catch (const std::invalid_argument& e) 
+    {
         std::cout << "Caught invalid_argument: " << e.what() << std::endl;
     }
 

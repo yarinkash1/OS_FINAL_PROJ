@@ -14,7 +14,8 @@ Graph generate_random_graph(int vertices, int edges, int seed)
     std::set<std::pair<int,int>> used;
     int added = 0;
 
-    while (added < edges) {
+    while (added < edges) 
+    {
         int u = dist(rng);
         int v = dist(rng);
 
