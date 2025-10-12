@@ -27,3 +27,4 @@ set -e
 
 # 9) (optional) force a non-Eulerian structure to exercise failure path in algorithm
 ./main -v 4 -e 3 -s 1 || true
+ 

@@ -8,10 +8,10 @@ Graph generate_random_graph(int vertices, int edges, int seed)
     Graph g(vertices, false); // undirected
 
     // Initialize RNG
-    std::mt19937 rng(seed);
+    std::mt19937 rng(seed); //helps in generating different graphs for different seeds
     std::uniform_int_distribution<int> dist(0, vertices - 1);
 
-    std::set<std::pair<int,int>> used;
+    std::set<std::pair<int,int>> used; //for preventing duplicate edges
     int added = 0;
 
     while (added < edges) 
