@@ -67,7 +67,7 @@ void run_server()
         FD_ZERO(&readfds);
         FD_SET(server_fd, &readfds);
 
-        // Timeout: default 30s, override with FAST_TIMEOUT env (used for quick gcov runs)
+    // Timeout: default 30s, override with FAST_TIMEOUT env (used for quick gcov runs)
         struct timeval timeout;
         const char* fast_env = std::getenv("FAST_TIMEOUT");
         long timeout_sec = 30;

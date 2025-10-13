@@ -34,7 +34,6 @@ send_raw() {
 }
 
 # ---------- Main flow ----------
-
 echo "[01] Start primary server"
 ./server > build/server.out 2> build/server.err &
 SERVER_PID=$!
