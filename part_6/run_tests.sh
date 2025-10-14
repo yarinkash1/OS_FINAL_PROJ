@@ -252,3 +252,4 @@ SERVER_PID=$!
 timeout 40s tail --pid="$SERVER_PID" -f /dev/null 2>/dev/null || true
 
 echo "[36] Done."
+
