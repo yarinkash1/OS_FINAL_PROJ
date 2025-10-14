@@ -7,12 +7,55 @@ void run_client()
     //buffer is a character array used to store data received from the server
     char buffer[4096] = {0};
 
+    
     /*
     The main while loop for user input
     Inside this loop, the client will repeatedly prompt the user for graph parameters and edge definitions.
     */
     while (true) 
     {
+        /*
+        Socket Creation and Connection:
+        This creates a new socket for network communication.
+        AF_INET specifies IPv4 addressing.
+        SOCK_STREAM means it’s a TCP socket (reliable, connection-oriented).
+        The last argument (0) lets the system choose the correct protocol (TCP for SOCK_STREAM).
+        */
+        int sock = socket(AF_INET, SOCK_STREAM, 0);
+        if (sock < 0) 
+        {
+            std::cerr << "Socket creation error\n";
+            return;
+        }
+
+        serv_addr.sin_family = AF_INET; // Sets the address family to IPv4
+        serv_addr.sin_port = htons(PORT); // Sets the port number for the server connection(by default 8080)
+
+        /*
+        inet_pton: Internet address, presentation to network
+        It converts an IP address from its human-readable string form ("127.0.0.1", which is localhost) into its binary form,
+        which is needed for network functions.
+        &serv_addr.sin_addr is where the binary result will be stored in the serv_addr structure.
+        If the conversion fails (returns 0 or negative), it means the address is invalid or not supported
+        */
+        if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) 
+        {
+            std::cerr << "Invalid address/ Address not supported\n";
+            return;
+        }
+
+        /*
+        connect() is a system call that tries to establish a connection from the client socket (sock) to the server specified by serv_addr.
+        (struct sockaddr *)&serv_addr casts the server address structure to the generic sockaddr type required by the function.
+        sizeof(serv_addr) gives the size of the address structure.
+        If connect() returns a negative value (< 0), the connection attempt failed (e.g., server not running, wrong address, network issues).
+        */
+        if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) 
+        {
+            std::cerr << "Connection Failed\n";
+            return;
+        }
+        
         int V; // V is the number of vertices in the graph
         /*
         Prompt the user for the number of vertices in the graph.
@@ -154,47 +197,7 @@ void run_client()
             graph_data += std::to_string(u) + " " + std::to_string(v) + "\n";
         }
 
-        /*
-        Socket Creation and Connection:
-        This creates a new socket for network communication.
-        AF_INET specifies IPv4 addressing.
-        SOCK_STREAM means it’s a TCP socket (reliable, connection-oriented).
-        The last argument (0) lets the system choose the correct protocol (TCP for SOCK_STREAM).
-        */
-        int sock = socket(AF_INET, SOCK_STREAM, 0);
-        if (sock < 0) 
-        {
-            std::cerr << "Socket creation error\n";
-            return;
-        }
-
-        serv_addr.sin_family = AF_INET; // Sets the address family to IPv4
-        serv_addr.sin_port = htons(PORT); // Sets the port number for the server connection(by default 8080)
-
-        /*
-        inet_pton: Internet address, presentation to network
-        It converts an IP address from its human-readable string form ("127.0.0.1", which is localhost) into its binary form,
-        which is needed for network functions.
-        &serv_addr.sin_addr is where the binary result will be stored in the serv_addr structure.
-        If the conversion fails (returns 0 or negative), it means the address is invalid or not supported
-        */
-        if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) 
-        {
-            std::cerr << "Invalid address/ Address not supported\n";
-            return;
-        }
-
-        /*
-        connect() is a system call that tries to establish a connection from the client socket (sock) to the server specified by serv_addr.
-        (struct sockaddr *)&serv_addr casts the server address structure to the generic sockaddr type required by the function.
-        sizeof(serv_addr) gives the size of the address structure.
-        If connect() returns a negative value (< 0), the connection attempt failed (e.g., server not running, wrong address, network issues).
-        */
-        if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) 
-        {
-            std::cerr << "Connection Failed\n";
-            return;
-        }
+        
 
         // Sending Graph Data and Receiving Response
         send(sock, graph_data.c_str(), graph_data.size(), 0);
