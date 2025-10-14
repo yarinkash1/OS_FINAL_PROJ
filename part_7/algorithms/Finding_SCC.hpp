@@ -1,3 +1,12 @@
+/*
+@author : Roy Meoded
+@author : Yarin Keshet
+
+@date: 14-10-2025
+
+@description: This file contains the declaration of the FindingSCC class, which implements
+the algorithm to find Strongly Connected Components (SCCs) in a directed graph using Kosaraju's algorithm.
+*/
 #pragma once
 
 #include "../part_1/graph_impl.hpp"

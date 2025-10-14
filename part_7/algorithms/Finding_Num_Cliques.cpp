@@ -38,7 +38,7 @@ static int countCliquesRecursive(const Graph& graph, int k, int start, std::vect
 	for (int v = start; v < n; ++v) 
     {
 		current.push_back(v);
-		count += countCliquesRecursive(graph, k, v + 1, current);
+		count += countCliquesRecursive(graph, k, v + 1, current); //Calling itself recursively to build combinations.
 		current.pop_back();
 	}
 	return count;

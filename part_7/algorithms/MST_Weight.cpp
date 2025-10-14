@@ -82,7 +82,8 @@ int MSTWeight::findMSTWeight(const Graph& graph)
 	int mst_weight = 0;
 	int edges_used = 0;
 	for (const auto& e : edges) 
-    {
+    {	
+		// Try to unite the sets of u and v
 		if (dsu.unite(e.u, e.v)) 
         {
 			mst_weight += e.weight;
