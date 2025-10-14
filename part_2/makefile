@@ -36,4 +36,4 @@ valgrind-cg: all
 clean:
 	rm -f euler *.o ../part_1/graph_impl.o *.gcno *.gcda *.gcov callgrind.out.*
 
-.PHONY: all clean gcov valgrind-mem valgrind-hel valgrind-cg
+.PHONY: all clean gcov euler valgrind-mem valgrind-hel valgrind-cg
