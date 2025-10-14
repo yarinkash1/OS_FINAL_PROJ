@@ -35,14 +35,20 @@ $(BIN_SERVER): $(OBJS_SERVER)
 $(BIN_CLIENT): $(OBJS_CLIENT)
 	$(CXX) $(OBJS_CLIENT) $(LDFLAGS) -o $@
 
-# ===== GCOV =====
-gcov: all
-	./run_tests.sh
-	@echo "=== GCOV REPORTS (Server + Client Only) ==="
-	@echo "--- Client ---"
-	gcov -b -c client.cpp -o . || true
-	@echo "--- Server ---"
-	gcov -b -c server.cpp -o . || true
+# ===== Simplified Coverage (single total target) =====
+gcov: clean all
+	@FAST_TIMEOUT=1 ./run_tests.sh >/dev/null 2>&1 || true
+	@FAST_TIMEOUT=1 SUPPRESS_EXIT=1 COV_FORCE_SOCKET_ERROR=1 ./server >/dev/null 2>&1 || true
+	@FAST_TIMEOUT=1 SUPPRESS_EXIT=1 COV_FORCE_SETSOCKOPT_ERROR=1 ./server >/dev/null 2>&1 || true
+	@FAST_TIMEOUT=1 SUPPRESS_EXIT=1 COV_FORCE_BIND_ERROR=1 ./server >/dev/null 2>&1 || true
+	@FAST_TIMEOUT=1 SUPPRESS_EXIT=1 COV_FORCE_LISTEN_ERROR=1 ./server >/dev/null 2>&1 || true
+	@FAST_TIMEOUT=1 SUPPRESS_EXIT=1 COV_FORCE_SELECT_ERROR=1 ./server >/dev/null 2>&1 || true
+	@FAST_TIMEOUT=1 SUPPRESS_EXIT=1 COV_FORCE_ACCEPT_ERROR=1 ./server >/dev/null 2>&1 || true
+	@rm -f server.cpp.gcov client.cpp.gcov || true
+	@gcov -b -c server.cpp -o . >/dev/null 2>&1 || true
+	@gcov -b -c client.cpp -o . >/dev/null 2>&1 || true
+	@bash tools/coverage_totals_quiet.sh
+
 
 # ===== Valgrind =====
 
@@ -71,4 +77,4 @@ clean:
 	rm -f $(BIN_SERVER) $(BIN_CLIENT) *.o *.gcno *.gcda *.gcov \
 	      server-*.gcno server-*.gcda client-*.gcno client-*.gcda \
 	      callgrind.out* cachegrind.out* gmon.out gprof_report.txt
-	rm -rf build
+	rm -rf build cov_* server_err server_norm

@@ -35,12 +35,12 @@ send_raw() {
 
 # ---------- Main flow ----------
 
-echo "[1] Running server..."
+echo "[01] Start primary server"
 ./server > build/server.out 2> build/server.err &
 SERVER_PID=$!
 sleep 0.5
 
-echo "[2] Complex invalid + valid input"
+echo "[02] Complex invalid then valid input sequence"
 timeout 6s ./client > build/client_complex.out 2> build/client_complex.err <<'EOF'
 -2
 a
@@ -58,7 +58,7 @@ a
 n
 EOF
 
-echo "[3] One edge (not Eulerian)"
+echo "[03] One edge (not Eulerian)"
 timeout 6s ./client > build/client_one_edge.out 2> build/client_one_edge.err <<'EOF'
 3
 1
@@ -66,7 +66,7 @@ timeout 6s ./client > build/client_one_edge.out 2> build/client_one_edge.err <<'
 n
 EOF
 
-echo "[4] Valid Eulerian circuit"
+echo "[04] Valid Eulerian circuit"
 timeout 6s ./client > build/client_valid_euler.out 2> build/client_valid_euler.err <<'EOF'
 3
 2
@@ -75,7 +75,7 @@ timeout 6s ./client > build/client_valid_euler.out 2> build/client_valid_euler.e
 n
 EOF
 
-echo "[5] Exit in the middle of edge input"
+echo "[05] Exit in the middle of edge input"
 timeout 6s ./client > build/client_exit_mid_edges.out 2> build/client_exit_mid_edges.err <<'EOF'
 3
 2
@@ -83,7 +83,7 @@ timeout 6s ./client > build/client_exit_mid_edges.out 2> build/client_exit_mid_e
 exit
 EOF
 
-echo "[6] Invalid answer in again loop"
+echo "[06] Invalid answer in again loop"
 timeout 6s ./client > build/client_invalid_again.out 2> build/client_invalid_again.err <<'EOF'
 3
 0
@@ -91,7 +91,7 @@ maybe
 n
 EOF
 
-echo "[7] Edges larger than max"
+echo "[07] Declared edges larger than maximum allowed"
 timeout 6s ./client > build/client_edges_gt_max.out 2> build/client_edges_gt_max.err <<'EOF'
 3
 5
@@ -101,14 +101,14 @@ timeout 6s ./client > build/client_edges_gt_max.out 2> build/client_edges_gt_max
 n
 EOF
 
-echo "[8] Empty graph (E=0)"
+echo "[08] Empty graph (E=0)"
 timeout 6s ./client > build/client_empty_graph.out 2> build/client_empty_graph.err <<'EOF'
 3
 0
 n
 EOF
 
-echo "[9] V too small (trigger V<=1)"
+echo "[09] V too small (trigger V<=1)"
 timeout 6s ./client > build/client_v_too_small.out 2> build/client_v_too_small.err <<'EOF'
 1
 3
@@ -172,14 +172,55 @@ EOF
 
 # --------- Server-only branches via RAW socket (without client validation) ---------
 
-echo "[15b] RAW: E < 0 to hit 'edges cannot be negative'"
+echo "[16] RAW: E < 0 (edges cannot be negative)"
 send_raw "3 -1\n" build/raw_E_negative.out build/raw_E_negative.err
 
-echo "[15c] RAW: invalid edge (out of range) to hit 'Invalid edge (...)'"
+echo "[17] RAW: invalid edge (vertex out of range)"
 send_raw "3 1\n5 0\n" build/raw_edge_oob.out build/raw_edge_oob.err
 
+# --------- Additional RAW cases for expanded server coverage ---------
+echo "[18] RAW: Valid multi-edge graph (Eulerian)"
+send_raw "4 4\n0 1\n1 2\n2 3\n3 0\n" build/raw_valid_euler.out build/raw_valid_euler.err
+
+echo "[19] RAW: Valid multi-edge non-Eulerian (odd degrees)"
+send_raw "5 4\n0 1\n1 2\n2 3\n3 4\n" build/raw_valid_noneuler.out build/raw_valid_noneuler.err
+
+echo "[20] RAW: Empty graph (E=0)"
+send_raw "6 0\n" build/raw_empty.out build/raw_empty.err
+
+echo "[21] RAW: Mid-loop invalid edge (early break)"
+send_raw "3 3\n0 1\n1 2\n7 0\n" build/raw_mid_invalid.out build/raw_mid_invalid.err
+
+echo "[22] RAW: Incomplete edge list (declared E larger than provided)"
+# Declares 3 edges but sends only 1 line; remaining read should yield partial buffer
+send_raw "3 3\n0 1\n" build/raw_incomplete_edges.out build/raw_incomplete_edges.err
+
+echo "[23] RAW: Duplicate edges (loop continues)"
+send_raw "3 3\n0 1\n1 2\n0 1\n" build/raw_duplicate_edges.out build/raw_duplicate_edges.err
+
+echo "[24] RAW: Negative vertices (V<0)"
+send_raw "-2 1\n0 1\n" build/raw_negative_vertices.out build/raw_negative_vertices.err
+
+echo "[25] RAW: EXIT_CLIENT direct message"
+send_raw "EXIT_CLIENT" build/raw_exit_client_direct.out build/raw_exit_client_direct.err
+
+echo "[26] RAW: Invalid first edge (out of range immediately)"
+send_raw "3 2\n5 0\n0 1\n" build/raw_invalid_first_edge.out build/raw_invalid_first_edge.err
+
+echo "[27] RAW: Large V, zero edges (loop zero iterations)"
+send_raw "10 0\n" build/raw_largeV_zeroE.out build/raw_largeV_zeroE.err
+
+echo "[28] RAW: Mix valid then invalid edge (second edge invalid)"
+send_raw "4 3\n0 1\n8 2\n2 3\n" build/raw_second_edge_invalid.out build/raw_second_edge_invalid.err
+
+echo "[29] RAW: Valid graph with many edges"
+send_raw "5 6\n0 1\n1 2\n2 3\n3 4\n4 0\n1 3\n" build/raw_many_edges.out build/raw_many_edges.err
+
+echo "[30] RAW: Parse failure (non-numeric start)"
+send_raw "abc xyz\n" build/raw_parse_fail.out build/raw_parse_fail.err
+
 # --------- Clean shutdown of the main server ---------
-echo "[16] EXIT_CLIENT to close main server (clean coverage flush)"
+echo "[31] EXIT_CLIENT to close main server (clean coverage flush)"
 timeout 6s ./client > /dev/null 2>&1 <<'EOF'
 2
 0
@@ -188,17 +229,17 @@ EOF
 sleep 0.4
 graceful_stop_server "$SERVER_PID" || true
 
-echo "[17] Connection error (server down)"
+echo "[32] Connection error (server down)"
 timeout 3s ./client > build/client_conn_fail1.out 2> build/client_conn_fail1.err || true
 
-echo "[19] Connection error (server already down)"
+echo "[33] Connection error (server already down)"
 timeout 3s ./client > build/client_conn_fail2.out 2> build/client_conn_fail2.err <<'EOF' || true
 3
 0
 n
 EOF
 
-echo "[20] Again loop – invalid then 'n' (extra)"
+echo "[34] Again loop – invalid then 'n' (extra)"
 timeout 6s ./client > build/client_again_invalid_prompt.out 2> build/client_again_invalid_prompt.err <<'EOF'
 3
 0
@@ -206,9 +247,9 @@ koko
 n
 EOF
 
-echo "[21] Server timeout (no clients for 30s)"
+echo "[35] Server timeout (no clients for 30s)"
 ./server > build/server_timeout.out 2> build/server_timeout.err &
 SERVER_PID=$!
 timeout 40s tail --pid="$SERVER_PID" -f /dev/null 2>/dev/null || true
 
-echo "[22] Done."
+echo "[36] Done."
