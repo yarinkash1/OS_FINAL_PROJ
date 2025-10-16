@@ -1,5 +1,6 @@
 #include "server.hpp"
 
+//For SIGINT/SIGTERM handling:
 static int g_server_fd = -1;
 
 // Helper function for receiving all lines from a socket
@@ -24,12 +25,13 @@ bool recv_all_lines(int fd, std::string &out)
                 return true;
             }
         }
+        
         else if (n == 0) 
         {
-            // connection closed
+            // connection closed:
             return !out.empty();
         }
-        // connection error
+        // connection error:
         else 
         {
             if (errno == EINTR) continue;
@@ -50,6 +52,8 @@ void send_response(int fd, const std::string &body, bool ok)
 int run_server(int argc, char *argv[]) 
 {
     int port = PORT; // default port is 9090
+
+    // If a port number is provided as a command-line argument, use it:
     if (argc >= 2) 
     {
         port = std::atoi(argv[1]);
@@ -73,6 +77,7 @@ int run_server(int argc, char *argv[])
     // mainly to avoid “Address already in use” after restarts).
     setsockopt(srv, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
+    //Define the server address struct and bind to the specified port:
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -84,6 +89,8 @@ int run_server(int argc, char *argv[])
         close(srv);
         return 1;
     }
+
+    //Define queue of up to 8 pending connections:
     if (listen(srv, 8) < 0) 
     {
         std::perror("listen");
@@ -112,6 +119,7 @@ int run_server(int argc, char *argv[])
             break;
         }
 
+    // Log client connection details:
     char ipstr[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &cli.sin_addr, ipstr, sizeof(ipstr));
     std::cout << "Client connected from " << ipstr << ":" << ntohs(cli.sin_port) << "\n";
@@ -128,7 +136,8 @@ int run_server(int argc, char *argv[])
                 std::cout << "Client disconnected.\n";
                 break;
             }
-
+        
+        // Check for special commands EXIT and SHUTDOWN:
           auto has_cmd = [](const std::string& s, const char* cmd) {
             std::string c(cmd);
             if (s.rfind(c + "\n", 0) == 0) return true;                
@@ -137,6 +146,7 @@ int run_server(int argc, char *argv[])
             return false;
         };
 
+        //For EXIT command, close client connection and wait for a new client:
         if (has_cmd(req, "EXIT")) {
             send_response(fd, "BYE", true);
             close(fd);
@@ -144,6 +154,7 @@ int run_server(int argc, char *argv[])
             break;
         }
 
+        //For SHUTDOWN command, close client connection and shutdown the server:
         if (has_cmd(req, "SHUTDOWN")) {
             send_response(fd, "Server shutting down", true);
             close(fd);
@@ -347,6 +358,7 @@ int run_server(int argc, char *argv[])
     return 0;
 }
 
+//Using that for handling kill/Ctrl+C->for closing the server socket:
 void handle_signal(int) {
     std::cout << "\n[Signal] Shutting down server..." << std::endl;
     if (g_server_fd >= 0) close(g_server_fd);

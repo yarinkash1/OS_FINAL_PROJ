@@ -1,12 +1,16 @@
 #include "client.hpp"
 
-const int PER_INPUT_TIMEOUT_MS = 10000; // 10 seconds per input
+const int PER_INPUT_TIMEOUT_MS = 10000; // 10 seconds per input from user
 
+
+//Reading a line with timeout-using poll():
 bool getline_with_timeout(std::string &out, int timeout_ms = PER_INPUT_TIMEOUT_MS) {
     struct pollfd pfd;
     pfd.fd = STDIN_FILENO;
     pfd.events = POLLIN;
     int ret = poll(&pfd, 1, timeout_ms);
+
+    // If data is available to read, read a line from stdin:
     if (ret > 0) {
         return static_cast<bool>(std::getline(std::cin, out));
     }
@@ -18,20 +22,26 @@ bool getline_with_timeout(std::string &out, int timeout_ms = PER_INPUT_TIMEOUT_M
 void println_rule() { std::cout << "----------------------------------------\n"; }
 
 // Helper function for prompting an integer input:
+//Input with validation and timeout:
 int prompt_int(const std::string& msg, int minVal, int maxVal)
 {
     while (true) {
         std::cout << msg << " > ";
-        std::cout.flush();
+        std::cout.flush(); // Ensure prompt is displayed immediately
 
         std::string s;
+
+        // Read input with timeout:
         if (!getline_with_timeout(s)) {
             std::cout << "\n[Timeout 10s] Exiting client.\n";
             exit(0);
         }
 
+        //Clean up input and validate:
         s.erase(0, s.find_first_not_of(" \t\n\r"));
         if (s.empty()) continue;
+
+        //Convert that all the characters are digits:
         if (!std::all_of(s.begin(), s.end(), ::isdigit)) {
             std::cout << "Invalid number\n"; continue;
         }
@@ -67,7 +77,7 @@ int run_client(int argc, char* argv[])
     }
     sockaddr_in sa{};
     sa.sin_family = AF_INET;
-    sa.sin_port = htons(port);
+    sa.sin_port = htons(port); //Convert to network byte order
     if (inet_pton(AF_INET, "127.0.0.1", &sa.sin_addr) <= 0)
     {
         perror("inet_pton"); close(sock); return 1; 
@@ -89,13 +99,15 @@ int run_client(int argc, char* argv[])
             "  3) CLIQUES\n"
             "  4) MST\n"
             "  0) Exit\n> ", 0, 4);
-    if (sel == 0) 
-    {
-        const char* bye = "EXIT\n";
-        send(sock, bye, std::strlen(bye), 0);
-        close(sock);
-        break; 
-    }
+
+        //For exit:
+        if (sel == 0) 
+        {
+            const char* bye = "EXIT\n";
+            send(sock, bye, std::strlen(bye), 0);
+            close(sock);
+            break; 
+        }
         std::string alg;
         switch (sel) 
         {
@@ -106,14 +118,16 @@ int run_client(int argc, char* argv[])
             default: std::cout << "Unknown selection.\n"; continue;
         }
 
+        //For directed/undirected:
         bool directed = (alg == "MAX_FLOW" || alg == "SCC");
 
+        // Prompt for number of vertices and edges:
         int V = prompt_int("Enter number of vertices (>=2): ", 2, 1000000);
         int max_edges = directed ? V * (V - 1) : V * (V - 1) / 2;
         int E = prompt_int("Enter number of edges (0.." + std::to_string(max_edges) + "): ", 0, max_edges);
 
-        std::set<std::pair<int,int>> undup;
-        std::vector<std::tuple<int,int,int>> edges;
+        std::set<std::pair<int,int>> undup; // to avoid duplicate edges in undirected graphs
+        std::vector<std::tuple<int,int,int>> edges; // u,v,w
         
         if(E>0){
             std::cout << "Enter edges as: u v w. For unweighted, omit w.\n";
@@ -138,7 +152,7 @@ int run_client(int argc, char* argv[])
                         close(sock); return 0; 
                     }
                     std::istringstream ls(line);
-                    int u,v,w=1;
+                    int u,v,w=1; // default weight is 1
                     if (!(ls>>u>>v)) 
                     {
                         std::cout<<"Bad format\n";
@@ -178,7 +192,7 @@ int run_client(int argc, char* argv[])
 
        int SRC = -1, SINK = -1, K = -1;
 
-        // MAX_FLOW דורש קלט של SRC/SINK רק אם יש לפחות צלע אחת
+        // Additional parameters for specific algorithms:
         if (alg == "MAX_FLOW") {
             if (E > 0) {
                 SRC = prompt_int("SRC: ", 0, V - 1);
@@ -188,7 +202,10 @@ int run_client(int argc, char* argv[])
                         std::cout << "SINK must be different from SRC\n";
                     }
                 } while (SINK == SRC);
-            } else {
+            } 
+
+            //For zero edges, skip SRC/SINK input:
+            else {
                 std::cout << "[No edges, skipping SRC/SINK input]\n";
                 std::cout.flush();
             }
@@ -197,7 +214,7 @@ int run_client(int argc, char* argv[])
             K = prompt_int("K (>=2): ", 2, V);
         }
         
-    
+        // Construct and send the request:
         std::ostringstream req;
         req << "ALG " << alg << " DIRECTED " << (directed?1:0) << "\n";
         req << "V " << V << "\n";
@@ -216,16 +233,20 @@ int run_client(int argc, char* argv[])
         std::string s = req.str();
         send(sock, s.c_str(), s.size(), 0);
 
+
+        // Receive and display the response:
         char buf[4096]; int n = recv(sock, buf, sizeof(buf), 0);
         if (n>0) 
         {
             println_rule();
             std::cout << std::string(buf, n) << std::endl;
         }
+
+        // Prompt to run another or exit:
         std::cout << "Type 'exit' to quit or press Enter to run another.\n";
         std::cout.flush();
 
-    // Another round?
+    // Another round?:
     std::string again;
     if (!getline_with_timeout(again, PER_INPUT_TIMEOUT_MS)) {
         std::cout << "\n[Timeout 10s] Exiting client.\n";
@@ -235,7 +256,7 @@ int run_client(int argc, char* argv[])
         break;
     }
 
-
+    //If user typed 'exit', then exit:
     if (again == "exit") 
     {
         const char* bye = "EXIT\n";
