@@ -3,7 +3,9 @@
 int FindingMaxFlow::findMaxFlow(Graph& g, int source, int sink) 
 {
     int V = g.get_vertices();
+
     // Copy the capacity matrix from the graph
+    // Capacity[u][v] = capacity of edge u->v
     std::vector<std::vector<int>> residual = g.get_capacity();
 
     int maxFlow = 0;
@@ -48,13 +50,13 @@ int FindingMaxFlow::findMaxFlow(Graph& g, int source, int sink)
                 // Check if the parent of v is not assigned and there's available capacity
                 if (parent[v] == -1 && residual[u][v] > 0) 
                 {
-                    parent[v] = u; // Set parent of v to u
+                    parent[v] = u; // Set parent of v to u (u-->v in the path)
                     if (v == t) return true; // If we reached the sink, return true
                     q.push(v); // Add v to the BFS queue
                 }
             }
         }
-        return false; // No augmenting path found
+        return false; // No augmenting path found (No path from s to t)
     };
 
     /*
@@ -64,8 +66,8 @@ int FindingMaxFlow::findMaxFlow(Graph& g, int source, int sink)
     */
     while (bfs(source, sink)) 
     {
-        // Find minimum residual capacity along the path
-        int path_flow = INT_MAX;
+        // Find minimum residual capacity along the path:
+        int path_flow = INT_MAX; // Initialize path flow to a large value
         for (int v = sink; v != source; v = parent[v]) 
         {
             int u = parent[v];
