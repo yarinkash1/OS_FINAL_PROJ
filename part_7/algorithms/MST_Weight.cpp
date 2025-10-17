@@ -3,7 +3,7 @@
 /*
 This code defines the Edge struct and its comparison operator:
 *Edge represents a connection between two vertices (u and v) with a given weight.
-*The operator< allows edges to be compared by their weight, so they can be sorted.
+*The operator< allows edges to be compared by their weight, so they can be sorted..
 
 Purpose:
 Sorting edges by weight is essential for Kruskal's algorithm,
