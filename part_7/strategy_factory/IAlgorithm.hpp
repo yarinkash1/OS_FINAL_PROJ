@@ -1,3 +1,14 @@
+/*
+@ author : Roy Meoded
+@ author : Yarin Keshet
+
+@ date: 18-10-2025
+
+@ description: This file contains the interface IAlgorithm for different graph algorithms.
+Each algorithm must implement the id() method to return a stable identifier,
+and the run() method to execute the algorithm on a given graph with parameters.
+*/
+
 #pragma once
 
 #include <string>

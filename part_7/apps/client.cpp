@@ -1,6 +1,6 @@
 #include "client.hpp"
 
-const int PER_INPUT_TIMEOUT_MS = 10000; // 10 seconds per input from user
+const int PER_INPUT_TIMEOUT_MS = 60000; // 60 seconds per input from user
 
 
 //Reading a line with timeout-using poll():
@@ -43,10 +43,10 @@ int prompt_int(const std::string& msg, int minVal, int maxVal)
 
         //Convert that all the characters are digits:
         if (!std::all_of(s.begin(), s.end(), ::isdigit)) {
-            std::cout << "Invalid number\n"; continue;
+            std::cout << "Invalid number, please try again.\n"; continue;
         }
         int v = std::stoi(s);
-        if (v < minVal || v > maxVal) { std::cout << "Out of range\n"; continue; }
+        if (v < minVal || v > maxVal) { std::cout << "Out of range, please try again.\n"; continue; }
         return v;
     }
 }
@@ -135,10 +135,10 @@ int run_client(int argc, char* argv[])
             {
                 while (true) 
                 {
-                    std::cout << "Edge " << (i+1) << ": ";
+                    std::cout << "Edge " << (i+1) << ": "<< std::flush;
                     std::string line;
                     if (!getline_with_timeout(line)) {
-                        std::cout << "\n[Timeout 10 seconds] Exiting client.\n";
+                        std::cout << "\n[Timeout 1 minute] Exiting client.\n";
                         const char* bye = "EXIT\n";
                         send(sock, bye, std::strlen(bye), 0);
                         close(sock);
@@ -160,14 +160,14 @@ int run_client(int argc, char* argv[])
                     }
                     if (u<0||v<0||u>=V||v>=V||u==v) 
                     {
-                        std::cout<<"Invalid vertices\n";
+                        std::cout<<"Invalid vertices, please try again.\n";
                         continue;
                     }
                     if (ls>>w) 
                     {
                         if (w<=0) 
                         {
-                            std::cout<<"Weight must be >0\n";
+                            std::cout<<"Weight must be >0, please try again.\n";
                             continue;
                         }
                     }
@@ -176,7 +176,7 @@ int run_client(int argc, char* argv[])
                         auto a = std::minmax(u,v);
                         if (undup.count({a.first,a.second})) 
                         {
-                            std::cout<<"Duplicate edge\n";
+                            std::cout<<"Duplicate edge, please try again.\n";
                             continue; 
                         }
                         undup.insert({a.first,a.second});
@@ -249,7 +249,7 @@ int run_client(int argc, char* argv[])
     // Another round?:
     std::string again;
     if (!getline_with_timeout(again, PER_INPUT_TIMEOUT_MS)) {
-        std::cout << "\n[Timeout 10s] Exiting client.\n";
+        std::cout << "\n[Timeout 60s] Exiting client.\n";
         const char* bye = "EXIT\n";
         send(sock, bye, std::strlen(bye), 0);
         close(sock);

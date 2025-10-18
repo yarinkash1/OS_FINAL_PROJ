@@ -1,3 +1,14 @@
+/*
+@author: Roy Meoded
+@author: Yarin Keshet
+
+@date: 18-10-2025
+
+@description: This file contains the SCCAlgo class that implements the IAlgorithm interface
+to find the strongly connected components (SCC) in a given graph.
+
+*/
+
 #pragma once
 #include "IAlgorithm.hpp"
 #include "Finding_SCC.hpp"

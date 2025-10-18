@@ -1,3 +1,14 @@
+/*
+@author: Roy Meoded
+@author: Yarin Keshet
+
+@date: 18-10-2025
+
+@description: This file contains the MaxFlowAlgo class that implements the IAlgorithm interface
+to find the maximum flow in a given graph using the Edmonds-Karp algorithm.
+
+*/
+
 #pragma once
 #include "IAlgorithm.hpp"
 #include "Finding_Max_Flow.hpp"

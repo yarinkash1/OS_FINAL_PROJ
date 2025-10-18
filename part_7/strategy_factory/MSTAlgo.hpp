@@ -1,3 +1,13 @@
+/*
+@author: Roy Meoded
+@author: Yarin Keshet
+
+@date: 18-10-2025
+
+@description: This file contains the MSTAlgo class that implements the IAlgorithm interface
+to find the weight of the Minimum Spanning Tree (MST) in a given graph.
+*/
+
 #pragma once
 #include "IAlgorithm.hpp"
 #include "MST_Weight.hpp"

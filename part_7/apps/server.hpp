@@ -1,3 +1,20 @@
+/*
+@author: Roy Meoded
+@author: Yarin Keshet
+
+@date: 18-10-2025
+
+@description: This file contains the server-side implementation of the application, including
+functions for handling client requests, processing data, and sending responses.
+Defined functions:
+- recv_all_lines(fd, out): Receives all lines from a client socket.
+- send_response(fd, body, ok): Sends a response back to the client.
+- run_server(argc, argv): Main server function to start the server and accept client connections.
+
+*/
+
+
+
 #pragma once
 
 #include <arpa/inet.h>

@@ -1,3 +1,15 @@
+/*
+@author: Roy Meoded
+@author: Yarin Keshet
+
+@date: 18-10-2025
+
+@description: This file contains the CliquesAlgo class that implements the IAlgorithm interface
+to find the number of cliques of size k in a given graph.
+*/
+
+
+
 #pragma once
 #include "IAlgorithm.hpp"
 #include "Finding_Num_Cliques.hpp"

@@ -1,3 +1,15 @@
+/*
+@author : Roy Meoded
+@author : Yarin Keshet
+
+@date: 18-10-2025
+
+@description: This file contains the AlgorithmFactory class that creates instances of different graph algorithms
+based on a given identifier. 
+It uses the Factory Design Pattern to encapsulate the creation logic.
+*/
+
+
 #pragma once
 #include <memory>
 #include <string>
