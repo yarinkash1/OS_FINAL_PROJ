@@ -47,3 +47,17 @@ client
 
 # debug information files
 *.dwo
+
+# Build directories (keep makefiles and scripts)
+**/build/*
+!**/build/makefile
+!**/build/run_tests.sh
+!**/build/run_gcov_tests.sh
+
+# Test logs
+**/build/testlogs/
+
+# IDE/editor
+.vscode/
+*.swp
+*.swo

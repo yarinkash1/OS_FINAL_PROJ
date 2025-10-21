@@ -1,3 +1,18 @@
+/*
+@author : Roy Meoded
+@author : Yarin Keshet
+
+@date: 20-10-2025
+
+@description: This file contains the client-side implementation of the application, including
+functions for handling user input, connecting to the server, sending requests, and receiving responses.
+Defined functions:
+- println_rule(): Prints a separator line to the console.
+- prompt_int(msg, minVal, maxVal): Prompts the user for an integer input within a specified range.
+- run_client(argc, argv): Main client function to connect to the server and handle user interactions.
+- getline_with_timeout(out, timeout_ms): Reads a line from stdin with a timeout.
+*/
+
 #pragma once
 #include <arpa/inet.h>
 #include <netinet/in.h>

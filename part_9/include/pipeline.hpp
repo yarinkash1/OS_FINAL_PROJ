@@ -1,7 +1,15 @@
 /*
-Pipeline types and minimal API used by the server.
+
+@author : Roy Meoded
+@author : Yarin Keshet
+
+@date : 20-10-2025
+
+
+@description: Pipeline types and minimal API used by the server.
 This header defines the Job that flows through the pipeline and
 declarations to start/stop the pipeline threads (implemented elsewhere).
+
 */
 
 #pragma once
@@ -27,15 +35,15 @@ enum class AlgKind
 struct Job 
 {
 	// Connection
-	int fd = -1;                 // client socket to reply on
+	int fd = -1;                 // identifier of the client connection, use it to send back results
 
 	// Request metadata
-	AlgKind kind = AlgKind::ALL; // what to compute
-	bool directed = false;       // graph orientation requested by client
+	AlgKind kind = AlgKind::ALL; // what to compute, the kind of request
+	bool directed = false;       // if the graph is directed or undirected
 
 	// Inputs for computation
-	Graph graph{0, false};       // the graph to operate on
-	std::unordered_map<std::string,int> params; // SRC/SINK/K etc.
+	Graph graph{1, false};       // the graph to operate on
+	std::unordered_map<std::string,int> params; // SRC/SINK/K etc, for MST/SCC we may not need any
 
 	// Results (filled by stages; string to keep exact messages like errors)
 	std::string res_max_flow;    // either numeric string or "Error: …"

@@ -4,14 +4,16 @@ const int PER_INPUT_TIMEOUT_MS = 60000; // 60 seconds per input from user
 
 
 //Reading a line with timeout-using poll():
-bool getline_with_timeout(std::string &out, int timeout_ms = PER_INPUT_TIMEOUT_MS) {
+bool getline_with_timeout(std::string &out, int timeout_ms = PER_INPUT_TIMEOUT_MS) 
+{
     struct pollfd pfd;
     pfd.fd = STDIN_FILENO;
     pfd.events = POLLIN;
     int ret = poll(&pfd, 1, timeout_ms);
 
     // If data is available to read, read a line from stdin:
-    if (ret > 0) {
+    if (ret > 0)
+    {
         return static_cast<bool>(std::getline(std::cin, out));
     }
     return false; // timeout
@@ -25,14 +27,16 @@ void println_rule() { std::cout << "----------------------------------------\n";
 //Input with validation and timeout:
 int prompt_int(const std::string& msg, int minVal, int maxVal)
 {
-    while (true) {
+    while (true) 
+    {
         std::cout << msg << " > ";
         std::cout.flush(); // Ensure prompt is displayed immediately
 
         std::string s;
 
         // Read input with timeout:
-        if (!getline_with_timeout(s)) {
+        if (!getline_with_timeout(s)) 
+        {
             std::cout << "\n[Timeout 10s] Exiting client.\n";
             exit(0);
         }
@@ -42,7 +46,8 @@ int prompt_int(const std::string& msg, int minVal, int maxVal)
         if (s.empty()) continue;
 
         //Convert that all the characters are digits:
-        if (!std::all_of(s.begin(), s.end(), ::isdigit)) {
+        if (!std::all_of(s.begin(), s.end(), ::isdigit)) 
+        {
             std::cout << "Invalid number, please try again.\n"; continue;
         }
         int v = std::stoi(s);

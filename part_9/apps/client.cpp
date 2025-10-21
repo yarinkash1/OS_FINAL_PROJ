@@ -92,7 +92,7 @@ int run_client(int argc, char* argv[])
         if (p>0) port=p; 
     }
 
-    std::cout<<"Part 8 Client (LF server)\n";
+    std::cout<<"Part 9 Client (Pipeline Server)\n";
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if(sock<0)
     {

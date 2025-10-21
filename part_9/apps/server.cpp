@@ -1,8 +1,15 @@
 #include "server.hpp"
+
+// Helper for gcov flushing:
 extern "C" void __gcov_flush(void) __attribute__((weak));
 
-static std::atomic_flag g_flush_once = ATOMIC_FLAG_INIT;
+static std::atomic_flag g_flush_once = ATOMIC_FLAG_INIT; // ensure gcov flush only once
 
+static std::atomic<std::chrono::steady_clock::time_point> g_last_activity;
+static std::atomic<int> g_active_clients{0};
+
+
+// Thread-safe gcov flush called from signal handlers:
 static inline void gcov_flush_safe_once() {
     if (g_flush_once.test_and_set()) {
         return; // Already done/in progress, do not enter again
@@ -10,6 +17,16 @@ static inline void gcov_flush_safe_once() {
     if (__gcov_flush) {
         __gcov_flush();
     }
+}
+
+// Signal handlers:
+static void sigusr1_handler(int) {
+    gcov_flush_safe_once();
+}
+
+// SIGTERM/SIGINT handler to initiate shutdown:
+static void sigterm_handler(int) {;
+    gcov_flush_safe_once();
 }
 
 
@@ -28,30 +45,54 @@ using std::unordered_map;
 // -------------------- Pipeline implementation --------------------
 namespace 
 {
-    // Leader–Follower state:
-
+    // Leader–Follower state(like part_8):
     std::mutex g_mu;
     std::condition_variable g_cv;
     bool g_hasLeader = false;
     bool g_shutdown = false;
 
 
-    // Queues between stages
+    // Blocking queues between stages:
     BlockingQueue<Job> q_max_flow;
     BlockingQueue<Job> q_scc;
     BlockingQueue<Job> q_mst;
     BlockingQueue<Job> q_cliques;
     BlockingQueue<Job> q_agg;
 
-    // Stage loops
+
+    
+    // Shutdown helper:
+    // Closes listening socket and notifies all waiting threads:
+    static void set_shutdown_and_wake() {
+        {
+            std::lock_guard<std::mutex> lk(g_mu); // Lock mutex
+            g_shutdown = true;
+        }
+        g_cv.notify_all(); // Wake all waiting threads
+        if (g_listen_fd >= 0) {
+            shutdown(g_listen_fd, SHUT_RDWR);
+            close(g_listen_fd);
+            g_listen_fd = -1;
+        }
+    }
+
+    // Stage loops for each pipeline stage:
+
+    // Max-Flow stage:
     void stage_max_flow_loop()
     {
         try {
-            Job job;
+            Job job; // temporary job storage
+
+            //Wait for jobs and process them:
             while (q_max_flow.pop(job))
             {
-                job.res_max_flow = run_alg_or_error("MAX_FLOW", job.graph, job.params, job.directed);
-                if (job.kind == AlgKind::SINGLE_MAX_FLOW) q_agg.push(std::move(job));
+                job.res_max_flow = run_alg_or_error("MAX_FLOW", job.graph, job.params, job.directed); // run max-flow
+
+                // If it is single max-flow request, send to aggregator, else to next stage:
+                if (job.kind == AlgKind::SINGLE_MAX_FLOW) q_agg.push(std::move(job)); 
+
+                // else to SCC stage:
                 else q_scc.push(std::move(job));
             }
         } catch (const std::exception& e) {
@@ -61,56 +102,42 @@ namespace
         }
     }
 
-    static void set_shutdown_and_wake() {
-        {
-            std::lock_guard<std::mutex> lk(g_mu);
-            g_shutdown = true;
-        }
-        g_cv.notify_all();
-        if (g_listen_fd >= 0) {
-            shutdown(g_listen_fd, SHUT_RDWR);
-            close(g_listen_fd);
-            g_listen_fd = -1;
-        }
-    }
 
-   static void sigusr1_handler(int) {
-        gcov_flush_safe_once();
-    }
-
-    static void sigterm_handler(int) {
-        set_shutdown_and_wake();
-        gcov_flush_safe_once();
-    }
-
-
-
+    // SCC stage:
     void stage_scc_loop()
     {
         try {
             Job job;
             while (q_scc.pop(job))
             {
-                job.res_scc = run_alg_or_error("SCC", job.graph, job.params, job.directed);
+                job.res_scc = run_alg_or_error("SCC", job.graph, job.params, job.directed); // run SCC
+
+                // If single SCC request, send to aggregator, else to next stage:
                 if (job.kind == AlgKind::SINGLE_SCC) q_agg.push(std::move(job));
+
+                // else to MST stage:
                 else q_mst.push(std::move(job));
             }
         } catch (const std::exception& e) {
-            std::cerr << "[scc] exception: " << e.what() << "\n";
+            std::cerr << "\n[scc] exception: " << e.what() << "\n";
         } catch (...) {
             std::cerr << "[scc] unknown exception\n";
         }
     }
 
-
+    // MST stage:
     void stage_mst_loop()
     {
         try {
             Job job;
             while (q_mst.pop(job))
             {
-                job.res_mst = run_alg_or_error("MST", job.graph, job.params, job.directed);
+                job.res_mst = run_alg_or_error("MST", job.graph, job.params, job.directed); // run MST
+
+                // If single MST request, send to aggregator, else to next stage:
                 if (job.kind == AlgKind::SINGLE_MST) q_agg.push(std::move(job));
+                
+                // else to cliques stage:
                 else q_cliques.push(std::move(job));
             }
         } catch (const std::exception& e) {
@@ -120,14 +147,15 @@ namespace
         }
     }
 
-
+    // Cliques stage:
     void stage_cliques_loop()
     {
         try {
             Job job;
             while (q_cliques.pop(job))
             {
-                job.res_cliques = run_alg_or_error("CLIQUES", job.graph, job.params, job.directed);
+                job.res_cliques = run_alg_or_error("CLIQUES", job.graph, job.params, job.directed); // run cliques
+                // If single cliques request, send to aggregator:
                 q_agg.push(std::move(job));
             }
         } catch (const std::exception& e) {
@@ -142,28 +170,43 @@ namespace
     {
         try {
             Job job;
+
+            // Wait for jobs and send responses:
             while (q_agg.pop(job))
-            {
+            {   
+                // Handle PREVIEW and single-algorithm requests separately:
                 if (job.kind == AlgKind::PREVIEW) {
                     auto body = serialize_graph_edges(job.graph, job.directed);
                     send_response(job.fd, body, true);
                     if (peer_already_closed_write(job.fd)) { close(job.fd); }
                     continue;
                 }
+                
+                // Max-Flow single request:
                 if (job.kind == AlgKind::SINGLE_MAX_FLOW) { 
                     send_response(job.fd, job.res_max_flow, true);
                     if (peer_already_closed_write(job.fd)) 
                     { close(job.fd); }
                     continue; 
                 }
+
+                // SCC single request:
                 if (job.kind == AlgKind::SINGLE_SCC)      { 
                     send_response(job.fd, job.res_scc, true);    
                     if (peer_already_closed_write(job.fd)) { close(job.fd); }
                     continue; 
                 }
-                if (job.kind == AlgKind::SINGLE_MST)      { send_response(job.fd, job.res_mst, true);    if (peer_already_closed_write(job.fd)) { close(job.fd); }
+
+                // MST single request:
+                if (job.kind == AlgKind::SINGLE_MST)      { 
+                    send_response(job.fd, job.res_mst, true);    
+                    if (peer_already_closed_write(job.fd)) { 
+                        close(job.fd); 
+                    }
                     continue; 
                 }
+
+                // Cliques single request:
                 if (job.kind == AlgKind::SINGLE_CLIQUES)  { 
                     send_response(job.fd, job.res_cliques, true);    
                     if (peer_already_closed_write(job.fd)) { 
@@ -172,6 +215,7 @@ namespace
                     continue; 
                 }
 
+                // ALL algorithms request: aggregate results and send
                 std::ostringstream body;
                 body << "RESULT MAX_FLOW="  << job.res_max_flow << "\n";
                 body << "RESULT SCC_COUNT=" << job.res_scc      << "\n";
@@ -189,18 +233,22 @@ namespace
     }
 
 
-    // Threads
+    // Aאtomic flag to ensure pipeline is started only once:
     std::atomic<bool> pipeline_started{false};
 }
 
+// Start the pipeline stages (detached threads):
 void start_pipeline()
 {
-    bool expected = false;
+    bool expected = false; // try to set from false to true
+
+    // Ensure only one thread can start the pipeline:
     if (!pipeline_started.compare_exchange_strong(expected, true))
     {
         return; // already started
     }
-        
+    
+    // Start each stage in its own detached thread:
     std::thread(stage_max_flow_loop).detach();
     std::thread(stage_scc_loop).detach();
     std::thread(stage_mst_loop).detach();
@@ -208,6 +256,7 @@ void start_pipeline()
     std::thread(stage_aggregator_loop).detach();
 }
 
+// Stop the pipeline stages (close queues to let threads exit):
 void stop_pipeline()
 {
     // Gracefully close queues to let threads exit if no more producers.
@@ -221,17 +270,21 @@ void stop_pipeline()
 // Helper function for receiving all lines from a socket
 bool recv_all_lines(int fd, std::string &out)
 {
-    char buf[1024];
+    char buf[1024]; 
     out.clear();
     for (;;)
     {
-        const ssize_t n = recv(fd, buf, sizeof(buf), 0);
+        const ssize_t n = recv(fd, buf, sizeof(buf), 0); // receive data
+        
+        // Append received data to output string and check for termination:
         if (n > 0) {
             out.append(buf, buf + n);
             if (out.find("\nEND\n")  != std::string::npos ||
                 out.rfind("\nEND") == out.size() - 4) return true;
             if (out.find("\nEXIT\n") != std::string::npos || out == "EXIT\n") return true;
-        } else if (n == 0) {
+        } 
+        // Handle recv errors and closure:
+        else if (n == 0) {
             return !out.empty();
         } else {
             if (errno == EINTR) continue;
@@ -240,13 +293,20 @@ bool recv_all_lines(int fd, std::string &out)
     }
 }
 
-
+// Helper function to check if peer has already closed its write side
 static bool peer_already_closed_write(int fd) {
     char b;
-    int r = recv(fd, &b, 1, MSG_PEEK | MSG_DONTWAIT);
+
+    //MSG_PEEK to check if connection is closed
+    //MSG_DONTWAIT to avoid blocking
+    int r = recv(fd, &b, 1, MSG_PEEK | MSG_DONTWAIT); 
+
+    //if r==0, peer has closed write side:
     if (r == 0) {
         return true;
     }
+
+    //if r<0 and errno is EAGAIN/EWOULDBLOCK/EINTR, no data but still open:
     if (r < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
         return false;
     }
@@ -263,9 +323,6 @@ void send_response(int fd, const std::string &body, bool ok)
     oss << "END\n";
     auto s = oss.str();
     (void)send(fd, s.c_str(), s.size(), 0);
-
-    shutdown(fd, SHUT_WR);
-
 
 }
 
@@ -306,6 +363,7 @@ void lf_server_loop(int srv_fd, int workers)
             socklen_t clilen = sizeof(cli);
             int fd = accept(srv_fd, (sockaddr*)&cli, &clilen);
 
+            
             // Immediately promote a follower so another thread can accept the next client.
             lk.lock();
             g_hasLeader = false;   // leadership is free
@@ -325,12 +383,14 @@ void lf_server_loop(int srv_fd, int workers)
                 return;
             }
              
-            
+            g_last_activity = std::chrono::steady_clock::now();
+            g_active_clients.fetch_add(1, std::memory_order_relaxed);
 
             // Log client connect information.
             char ipstr[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &cli.sin_addr, ipstr, sizeof(ipstr));
             std::cout << "[LF] Client connected from " << ipstr << ":" << ntohs(cli.sin_port) << "\n";
+            g_last_activity = std::chrono::steady_clock::now();
 
             // Process the connection on this (former leader) thread.
             try {
@@ -344,6 +404,10 @@ void lf_server_loop(int srv_fd, int workers)
 
             // After the client is handled, loop back and compete for leadership again.
             std::cout << "[LF] Client disconnected" << "\n";
+            g_last_activity = std::chrono::steady_clock::now();
+            g_active_clients.fetch_sub(1, std::memory_order_relaxed);
+
+
         }
     };
 
@@ -421,6 +485,7 @@ static string run_alg_or_error(const string& alg, const Graph& g,
             return "Error: invalid K for CLIQUES";
     }
 
+    // Create algorithm instance and run it, using the factory:
     auto ptr = AlgorithmFactory::create(alg);
     if (!ptr) return "Unsupported algorithm";
     return ptr->run(g, params);
@@ -631,6 +696,14 @@ void handle_client(int fd)
 
             continue; 
         }
+        // Upper bound guard to avoid pathological memory/CPU usage
+        // Keep under safe limits for WSL/CI; adjust if needed.
+        const int V_SAFE_MAX = 20000;
+        if (V > V_SAFE_MAX) {
+            send_response(fd, "V too large", false);
+            if (peer_already_closed_write(fd)) { close(fd); return; }
+            continue;
+        }
         if (randomFlag && (E<0)) 
         {
             send_response(fd, "Missing/invalid E", false);
@@ -711,14 +784,18 @@ void handle_client(int fd)
         }
 
         // Enqueue to appropriate entry queue
+
+        // Enqueue to appropriate entry queue:
         if (job.kind == AlgKind::PREVIEW) 
         {
             q_agg.push(std::move(job)); // aggregator will serialize and send
         }
+
         else if (job.kind == AlgKind::SINGLE_MAX_FLOW || job.kind == AlgKind::ALL) 
         {
             q_max_flow.push(std::move(job));
         }
+
         else if (job.kind == AlgKind::SINGLE_SCC) 
         {
             q_scc.push(std::move(job));
@@ -736,6 +813,10 @@ void handle_client(int fd)
 
 int run_server(int argc, char *argv[])
 {   
+    g_shutdown = false;
+    g_last_activity = std::chrono::steady_clock::now();
+
+
      signal(SIGPIPE, SIG_IGN);
     // 1) Determine listening port: default PORT, allow override via argv[1]
     int port = PORT;
@@ -755,6 +836,28 @@ int run_server(int argc, char *argv[])
         std::perror("socket");
         return 1;
     }
+
+  std::thread([]{
+    constexpr auto kIdle = std::chrono::seconds(30);
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        if (g_shutdown) break;
+
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = now - g_last_activity.load();
+
+        if (elapsed >= kIdle && g_active_clients.load(std::memory_order_relaxed) == 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            if (std::chrono::steady_clock::now() - g_last_activity.load() >= kIdle &&
+                g_active_clients.load(std::memory_order_relaxed) == 0) {
+                std::cout << "[IDLE] No client for 30s -> shutting down.\n";
+                set_shutdown_and_wake();
+                break;
+            }
+        }
+    }
+}).detach();
+
     g_listen_fd = srv; 
     signal(SIGUSR1, sigusr1_handler);
     signal(SIGTERM, sigterm_handler);

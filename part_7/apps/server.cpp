@@ -344,7 +344,7 @@ int run_server(int argc, char *argv[])
                    params["K"] = k; 
                 } 
 
-                std::string out = algoPtr->run(g, params);
+                std::string out = algoPtr->run(g, params); // strategy pattern usage
                 send_response(fd, out, true);
             }
             catch (const std::exception &ex) 
